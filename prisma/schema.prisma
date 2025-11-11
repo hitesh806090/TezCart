@@ -1,0 +1,457 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - Core authentication and identity
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String? // For email/password auth
+  role          UserRole  @default(CUSTOMER)
+  
+  accounts      Account[]
+  sessions      Session[]
+  sellerProfile SellerProfile?
+  addresses     Address[]
+  orders        Order[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+  cartItems     CartItem[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([email])
+}
+
+enum UserRole {
+  CUSTOMER
+  PROSPECTIVE_SELLER
+  SELLER
+  ADMIN
+  SUPER_ADMIN
+}
+
+// NextAuth models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Seller Profile
+model SellerProfile {
+  id                      String                @id @default(cuid())
+  userId                  String                @unique
+  user                    User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  sellerType              SellerType
+  applicationStatus       ApplicationStatus     @default(PENDING_SUBMISSION)
+  legalName               String?
+  dateOfBirth             DateTime?
+  businessRegistrationNumber String?
+  notesFromAdmin          String?               @db.Text
+  
+  // Store Profile Fields
+  storeName               String?               @unique
+  storeUrlSlug            String?               @unique
+  profilePictureUrl       String?
+  bannerImageUrl          String?
+  bio                     String?               @db.Text
+  publicContactEmail      String?
+  isPublic                Boolean               @default(false)
+  
+  addresses               Address[]
+  documents               Document[]
+  products                Product[]
+  socialLinks             SocialLink[]
+  orders                  Order[]
+  ledgerEntries           LedgerEntry[]
+  
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+
+  @@index([userId])
+  @@index([storeName])
+  @@index([storeUrlSlug])
+}
+
+enum SellerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum ApplicationStatus {
+  PENDING_SUBMISSION
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  MORE_INFO_REQUIRED
+}
+
+model Address {
+  id              String         @id @default(cuid())
+  userId          String?
+  sellerProfileId String?
+  addressType     AddressType
+  street          String
+  city            String
+  state           String
+  postalCode      String
+  country         String
+  
+  user            User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sellerProfile   SellerProfile? @relation(fields: [sellerProfileId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([sellerProfileId])
+}
+
+enum AddressType {
+  REGISTERED
+  PHYSICAL
+  SHIPPING
+  BILLING
+}
+
+model Document {
+  id              String        @id @default(cuid())
+  sellerProfileId String
+  sellerProfile   SellerProfile @relation(fields: [sellerProfileId], references: [id], onDelete: Cascade)
+  
+  documentType    DocumentType
+  fileStorageKey  String
+  isVerified      Boolean       @default(false)
+  
+  uploadedAt      DateTime      @default(now())
+
+  @@index([sellerProfileId])
+}
+
+enum DocumentType {
+  GOVERNMENT_ID_FRONT
+  GOVERNMENT_ID_BACK
+  BUSINESS_REGISTRATION
+}
+
+model SocialLink {
+  id              String        @id @default(cuid())
+  sellerProfileId String
+  sellerProfile   SellerProfile @relation(fields: [sellerProfileId], references: [id], onDelete: Cascade)
+  
+  platform        SocialPlatform
+  url             String
+
+  @@index([sellerProfileId])
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  FACEBOOK
+  TWITTER
+  PINTEREST
+  WEBSITE
+}
+
+// Product models
+model Product {
+  id              String         @id @default(cuid())
+  sellerId        String
+  seller          SellerProfile  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String         @db.Text
+  categoryId      String?
+  category        Category?      @relation(fields: [categoryId], references: [id])
+  status          ProductStatus  @default(DRAFT)
+  
+  variants        ProductVariant[]
+  media           ProductMedia[]
+  reviews         Review[]
+  wishlistItems   WishlistItem[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([sellerId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+enum ProductStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  REJECTED
+  ARCHIVED
+}
+
+model ProductVariant {
+  id              String         @id @default(cuid())
+  productId       String
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  sku             String?        @unique
+  price           Float
+  compareAtPrice  Float?
+  quantity        Int            @default(0)
+  variantName     String?
+  variantOptions  Json?          // For color, size, etc.
+  
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([productId])
+  @@index([sku])
+}
+
+model ProductMedia {
+  id              String        @id @default(cuid())
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  mediaType       MediaType
+  url             String
+  alt             String?
+  sortOrder       Int           @default(0)
+  
+  // 3D specific fields
+  is3DProcessed   Boolean       @default(false)
+  processingStatus String?
+  gltfUrl         String?
+  usdzUrl         String?
+  
+  createdAt       DateTime      @default(now())
+
+  @@index([productId])
+}
+
+enum MediaType {
+  IMAGE_2D
+  MODEL_3D
+  VIDEO
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?    @db.Text
+  parentId    String?
+  parent      Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryToCategory")
+  
+  products    Product[]
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([slug])
+  @@index([parentId])
+}
+
+// Shopping Cart
+model CartItem {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variantId       String
+  variant         ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  
+  quantity        Int            @default(1)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([userId, variantId])
+  @@index([userId])
+  @@index([variantId])
+}
+
+// Order models
+model Order {
+  id              String         @id @default(cuid())
+  customerId      String
+  customer        User           @relation(fields: [customerId], references: [id])
+  sellerId        String
+  seller          SellerProfile  @relation(fields: [sellerId], references: [id])
+  
+  orderNumber     String         @unique
+  status          OrderStatus    @default(PENDING)
+  
+  subtotal        Float
+  tax             Float
+  shipping        Float
+  total           Float
+  
+  shippingAddress Json
+  billingAddress  Json?
+  
+  trackingNumber  String?
+  
+  items           OrderItem[]
+  payment         Payment?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([customerId])
+  @@index([sellerId])
+  @@index([orderNumber])
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+model OrderItem {
+  id              String         @id @default(cuid())
+  orderId         String
+  order           Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId       String
+  variant         ProductVariant @relation(fields: [variantId], references: [id])
+  
+  quantity        Int
+  price           Float
+  
+  createdAt       DateTime       @default(now())
+
+  @@index([orderId])
+  @@index([variantId])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  orderId         String        @unique
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  amount          Float
+  status          PaymentStatus @default(PENDING)
+  paymentMethod   String
+  stripePaymentId String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([orderId])
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+// Seller Payout
+model LedgerEntry {
+  id              String        @id @default(cuid())
+  sellerId        String
+  seller          SellerProfile @relation(fields: [sellerId], references: [id])
+  
+  type            LedgerType
+  amount          Float
+  description     String?
+  referenceId     String?
+  
+  createdAt       DateTime      @default(now())
+
+  @@index([sellerId])
+}
+
+enum LedgerType {
+  SALE
+  PLATFORM_FEE
+  PAYOUT
+  REFUND
+  ADJUSTMENT
+}
+
+// Reviews
+model Review {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  rating      Int
+  title       String?
+  comment     String?  @db.Text
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([productId])
+  @@index([userId])
+}
+
+// Wishlist
+model WishlistItem {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
