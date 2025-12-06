@@ -1,0 +1,31 @@
+import { Entity, Column, Index } from 'typeorm';
+import { BaseEntity } from './base.entity';
+
+@Entity('homepage_contents')
+@Index(['tenantId', 'sectionOrder'])
+export class HomePageContent extends BaseEntity {
+  @Column({ nullable: false })
+  sectionType: string; // e.g., 'banner', 'carousel', 'categoryGrid', 'productGrid'
+
+  @Column({ nullable: true })
+  title: string; // Title for the section
+
+  @Column({ type: 'jsonb', nullable: true })
+  content: object; // JSON structure depending on sectionType
+  // For 'banner': { imageUrl: string, link: string, altText: string }
+  // For 'carousel': [{ imageUrl: string, link: string, altText: string }, ...]
+  // For 'categoryGrid': { categoryIds: string[], displayType: string }
+  // For 'productGrid': { productIds: string[], query: string, sort: string }
+
+  @Column({ default: 0 })
+  sectionOrder: number; // Order in which sections appear on the homepage
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  startDate: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  endDate: Date;
+}

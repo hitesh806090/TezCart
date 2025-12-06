@@ -1,0 +1,29 @@
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { BaseEntity } from './base.entity';
+import { User } from './user.entity';
+
+@Entity('delivery_partner_kyc_documents')
+@Index(['userId', 'tenantId', 'documentType'], { unique: false })
+export class DeliveryPartnerKycDocument extends BaseEntity {
+  @Column({ name: 'user_id', nullable: false })
+  userId: string; // The user (delivery partner) who uploaded the document
+
+  @ManyToOne(() => User, user => user.id, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
+  @Column({ nullable: false })
+  documentType: string; // e.g., 'driver_license', 'vehicle_registration', 'insurance_policy'
+
+  @Column({ nullable: false })
+  documentUrl: string; // S3 or similar storage URL
+
+  @Column({ nullable: false, default: 'pending' })
+  status: string; // e.g., 'pending', 'approved', 'rejected'
+
+  @Column({ type: 'text', nullable: true })
+  rejectionReason: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: object; // OCR data, file hash, etc.
+}

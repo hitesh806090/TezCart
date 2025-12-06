@@ -1,0 +1,29 @@
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { BaseEntity } from './base.entity';
+import { User } from './user.entity';
+
+@Entity('seller_kyc_documents')
+@Index(['userId', 'tenantId', 'documentType'], { unique: false }) // A user can upload multiple doc types
+export class SellerKycDocument extends BaseEntity {
+  @Column({ name: 'user_id', nullable: false })
+  userId: string; // The user (seller) who uploaded the document
+
+  @ManyToOne(() => User, user => user.id, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
+  @Column({ nullable: false })
+  documentType: string; // e.g., 'aadhaar', 'pan', 'gstin_certificate', 'bank_statement'
+
+  @Column({ nullable: false })
+  documentUrl: string; // S3 or similar storage URL
+
+  @Column({ nullable: false, default: 'pending' })
+  status: string; // e.g., 'pending', 'approved', 'rejected'
+
+  @Column({ type: 'text', nullable: true })
+  rejectionReason: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: object; // OCR data, file hash, etc.
+}
