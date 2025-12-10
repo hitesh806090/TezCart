@@ -6,48 +6,72 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { User, Package, Heart, MapPin, Bell, Settings, LogOut, ChevronRight } from 'lucide-react'
+import { User, Package, Heart, MapPin, Bell, Settings, LogOut, ChevronRight, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-
-const recentOrders = [
-    {
-        id: 'ORD-2024-001',
-        date: '2024-12-08',
-        status: 'delivered',
-        total: 697,
-        items: 3,
-    },
-    {
-        id: 'ORD-2024-002',
-        date: '2024-12-05',
-        status: 'shipped',
-        total: 299,
-        items: 1,
-    },
-    {
-        id: 'ORD-2024-003',
-        date: '2024-12-01',
-        status: 'processing',
-        total: 149,
-        items: 2,
-    },
-]
+import { useProfile, useLogout, useUpdateProfile, useChangePassword } from '@/hooks/useAuth'
+import { useOrders } from '@/hooks/useOrders'
+import { useWishlist } from '@/hooks/useWishlist'
+import { useForm } from 'react-hook-form'
 
 export default function ProfilePage() {
     const [activeTab, setActiveTab] = useState('profile')
 
-    const user = {
-        name: 'John Doe',
-        email: 'john@example.com',
-        phone: '+1 234 567 8900',
-        avatar: null,
-        memberSince: '2024-01-15',
+    // Hooks
+    const { data: user, isLoading: isUserLoading } = useProfile()
+    const { data: orders, isLoading: isOrdersLoading } = useOrders()
+    const { data: wishlist, isLoading: isWishlistLoading } = useWishlist()
+    const logout = useLogout()
+    const updateProfile = useUpdateProfile()
+    const changePassword = useChangePassword()
+
+    // Forms
+    const profileForm = useForm({
+        values: {
+            name: user?.name || '',
+            email: user?.email || '',
+            phone: user?.phone || '',
+        }
+    })
+
+    const passwordForm = useForm()
+
+    const onUpdateProfile = (data: any) => {
+        updateProfile.mutate(data)
+    }
+
+    const onChangePassword = (data: any) => {
+        changePassword.mutate({
+            currentPassword: data.currentPassword,
+            newPassword: data.newPassword
+        })
+    }
+
+    if (isUserLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+        )
+    }
+
+    if (!user) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold mb-4">Please log in to view your profile</h2>
+                    <Button asChild>
+                        <Link href="/login">Login</Link>
+                    </Button>
+                </div>
+            </div>
+        )
     }
 
     const stats = [
-        { label: 'Total Orders', value: '24', icon: Package },
-        { label: 'Wishlist Items', value: '12', icon: Heart },
-        { label: 'Saved Addresses', value: '3', icon: MapPin },
+        { label: 'Total Orders', value: orders?.length || 0, icon: Package },
+        { label: 'Wishlist Items', value: wishlist?.items?.length || 0, icon: Heart },
+        // Placeholder for saved addresses count if API supported it
+        { label: 'Saved Addresses', value: user?.role === 'seller' ? 'N/A' : '1', icon: MapPin },
     ]
 
     return (
@@ -61,13 +85,17 @@ export default function ProfilePage() {
                         <Card className="p-6">
                             {/* User Info */}
                             <div className="text-center mb-6">
-                                <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-purple-600 text-white text-3xl font-bold mb-4">
-                                    {user.name.charAt(0)}
+                                <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-purple-600 text-white text-3xl font-bold mb-4 overflow-hidden">
+                                    {user.avatar ? (
+                                        <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                                    ) : (
+                                        user.name?.charAt(0) || 'U'
+                                    )}
                                 </div>
                                 <h2 className="font-bold text-xl">{user.name}</h2>
                                 <p className="text-gray-600 text-sm">{user.email}</p>
                                 <Badge variant="outline" className="mt-2">
-                                    Member since {new Date(user.memberSince).getFullYear()}
+                                    Member since {user.createdAt ? new Date(user.createdAt).getFullYear() : '2024'}
                                 </Badge>
                             </div>
 
@@ -89,8 +117,8 @@ export default function ProfilePage() {
                                             key={item.id}
                                             onClick={() => setActiveTab(item.id)}
                                             className={`flex items-center justify-between w-full px-4 py-3 rounded-lg transition-colors ${activeTab === item.id
-                                                    ? 'bg-blue-50 text-blue-600 font-medium'
-                                                    : 'hover:bg-gray-50'
+                                                ? 'bg-blue-50 text-blue-600 font-medium'
+                                                : 'hover:bg-gray-50'
                                                 }`}
                                         >
                                             <div className="flex items-center space-x-3">
@@ -101,7 +129,10 @@ export default function ProfilePage() {
                                         </button>
                                     )
                                 })}
-                                <button className="flex items-center justify-between w-full px-4 py-3 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors">
+                                <button
+                                    onClick={logout}
+                                    className="flex items-center justify-between w-full px-4 py-3 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
+                                >
                                     <div className="flex items-center space-x-3">
                                         <LogOut className="h-5 w-5" />
                                         <span>Logout</span>
@@ -139,26 +170,27 @@ export default function ProfilePage() {
                                 {/* Profile Form */}
                                 <Card className="p-6">
                                     <h2 className="text-2xl font-bold mb-6">Personal Information</h2>
-                                    <form className="space-y-6">
+                                    <form onSubmit={profileForm.handleSubmit(onUpdateProfile)} className="space-y-6">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
                                                 <label className="text-sm font-medium mb-2 block">Full Name</label>
-                                                <Input defaultValue={user.name} />
+                                                <Input {...profileForm.register('name')} />
                                             </div>
                                             <div>
                                                 <label className="text-sm font-medium mb-2 block">Email Address</label>
-                                                <Input defaultValue={user.email} type="email" />
+                                                <Input {...profileForm.register('email')} type="email" disabled className="bg-gray-100" />
                                             </div>
                                             <div>
                                                 <label className="text-sm font-medium mb-2 block">Phone Number</label>
-                                                <Input defaultValue={user.phone} type="tel" />
-                                            </div>
-                                            <div>
-                                                <label className="text-sm font-medium mb-2 block">Date of Birth</label>
-                                                <Input type="date" />
+                                                <Input {...profileForm.register('phone')} type="tel" />
                                             </div>
                                         </div>
-                                        <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                                        <Button
+                                            type="submit"
+                                            disabled={updateProfile.isPending}
+                                            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                                        >
+                                            {updateProfile.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                             Save Changes
                                         </Button>
                                     </form>
@@ -167,22 +199,29 @@ export default function ProfilePage() {
                                 {/* Change Password */}
                                 <Card className="p-6">
                                     <h2 className="text-2xl font-bold mb-6">Change Password</h2>
-                                    <form className="space-y-6">
+                                    <form onSubmit={passwordForm.handleSubmit(onChangePassword)} className="space-y-6">
                                         <div>
                                             <label className="text-sm font-medium mb-2 block">Current Password</label>
-                                            <Input type="password" />
+                                            <Input {...passwordForm.register('currentPassword')} type="password" />
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
                                                 <label className="text-sm font-medium mb-2 block">New Password</label>
-                                                <Input type="password" />
+                                                <Input {...passwordForm.register('newPassword')} type="password" />
                                             </div>
                                             <div>
                                                 <label className="text-sm font-medium mb-2 block">Confirm Password</label>
-                                                <Input type="password" />
+                                                <Input {...passwordForm.register('confirmPassword')} type="password" />
                                             </div>
                                         </div>
-                                        <Button variant="outline">Update Password</Button>
+                                        <Button
+                                            variant="outline"
+                                            type="submit"
+                                            disabled={changePassword.isPending}
+                                        >
+                                            {changePassword.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Update Password
+                                        </Button>
                                     </form>
                                 </Card>
                             </>
@@ -192,61 +231,76 @@ export default function ProfilePage() {
                         {activeTab === 'orders' && (
                             <Card className="p-6">
                                 <h2 className="text-2xl font-bold mb-6">Recent Orders</h2>
-                                <div className="space-y-4">
-                                    {recentOrders.map((order) => (
-                                        <div key={order.id} className="p-4 bg-gray-50 rounded-lg">
-                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <h3 className="font-semibold text-lg">{order.id}</h3>
-                                                        <Badge className={`${order.status === 'delivered' ? 'bg-green-600' :
+                                {isOrdersLoading ? (
+                                    <div className="flex justify-center p-8">
+                                        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                                    </div>
+                                ) : !orders || orders.length === 0 ? (
+                                    <p className="text-center text-gray-500 py-8">No orders found.</p>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {orders.map((order: any) => (
+                                            <div key={order.id} className="p-4 bg-gray-50 rounded-lg">
+                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <h3 className="font-semibold text-lg">{order.orderNumber || order.id}</h3>
+                                                            <Badge className={`${order.status === 'delivered' ? 'bg-green-600' :
                                                                 order.status === 'shipped' ? 'bg-blue-600' :
                                                                     'bg-orange-600'
-                                                            }`}>
-                                                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                                                        </Badge>
+                                                                }`}>
+                                                                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                                                            <span>Placed: {new Date(order.createdAt).toLocaleDateString()}</span>
+                                                            <span>•</span>
+                                                            <span>{order.items?.length || 0} items</span>
+                                                            <span>•</span>
+                                                            <span className="font-semibold text-gray-900">${order.totalAmount}</span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                                                        <span>Placed: {new Date(order.date).toLocaleDateString()}</span>
-                                                        <span>•</span>
-                                                        <span>{order.items} items</span>
-                                                        <span>•</span>
-                                                        <span className="font-semibold text-gray-900">${order.total}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <Button variant="outline" size="sm">View Details</Button>
-                                                    {order.status === 'delivered' && (
-                                                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                                                            Buy Again
+                                                    <div className="flex gap-2">
+                                                        <Button variant="outline" size="sm" asChild>
+                                                            <Link href={`/orders/${order.id}`}>View Details</Link>
                                                         </Button>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                                 <Button variant="outline" className="w-full mt-6">View All Orders</Button>
                             </Card>
                         )}
 
-                        {/* Other tabs would have similar content */}
+                        {/* Wishlist Tab */}
                         {activeTab === 'wishlist' && (
                             <Card className="p-12 text-center">
                                 <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                                 <h2 className="text-2xl font-bold mb-2">View Your Wishlist</h2>
-                                <p className="text-gray-600 mb-6">12 items saved in your wishlist</p>
+                                <p className="text-gray-600 mb-6">{wishlist?.items?.length || 0} items saved in your wishlist</p>
                                 <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
                                     <Link href="/wishlist">Go to Wishlist</Link>
                                 </Button>
                             </Card>
                         )}
 
+                        {/* Addresses Tab */}
                         {activeTab === 'addresses' && (
                             <Card className="p-6">
                                 <h2 className="text-2xl font-bold mb-6">Saved Addresses</h2>
                                 <p className="text-gray-600">Manage your delivery addresses</p>
                                 <Button className="mt-6">Add New Address</Button>
+                            </Card>
+                        )}
+
+                        {/* Notifications & Settings placeholders */}
+                        {(activeTab === 'notifications' || activeTab === 'settings') && (
+                            <Card className="p-12 text-center">
+                                <Settings className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                                <h2 className="text-2xl font-bold mb-2">Coming Soon</h2>
+                                <p className="text-gray-600">This feature is under development.</p>
                             </Card>
                         )}
                     </div>

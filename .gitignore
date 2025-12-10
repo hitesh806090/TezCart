@@ -1,14 +1,22 @@
 # Dependencies
 node_modules/
-/.pnp
+.pnp
 .pnp.js
 
 # Testing
-/coverage
+coverage/
+
+# Next.js
+/.next/
+/out/
+frontend/.next/
+
+# NestJS
+/dist/
+backend/dist/
 
 # Production
-/build
-/dist
+build/
 
 # Misc
 .DS_Store
@@ -21,8 +29,17 @@ yarn-error.log*
 
 # Local env files
 .env
-.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.*
 
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDEs
+.vscode/
+.idea/
