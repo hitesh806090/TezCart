@@ -22,7 +22,9 @@ A **production-ready, full-stack multi-vendor e-commerce platform** built with m
 ### 🏪 **Multi-Vendor Marketplace**
 - Vendor registration & onboarding
 - Shop profiles with branding
-- Seller dashboard & analytics
+- **Seller Dashboard**: Complete management portal
+- **Analytics**: Sales charts & revenue tracking
+- **Inventory**: Product management tables
 - Order fulfillment workflow
 - Tier system (Bronze → Platinum)
 - Commission management
